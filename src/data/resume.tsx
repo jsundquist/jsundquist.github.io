@@ -33,7 +33,7 @@ export const DATA = {
     "Personal site — experience, projects, and a blog.",
   summary:
     "An experienced software engineer who builds developer tooling, internal platforms, and enterprise web applications. I'm drawn to the intersection of platform engineering and developer experience — architecting systems that are technically sound and genuinely easy for other engineers to use. I like tinkering with new technologies to understand how they work and whether they're worth building on, and I'm not afraid to push for newer approaches when they're the right fit. Comfortable owning a platform end to end, from architecture through adoption, having worked both as an individual contributor and as a team lead.",
-  avatarUrl: "/picofme.png",
+  avatarUrl: "/jonathan-sundquist.jpg",
   ogImage: "/og_image.png",
   sections: {
     about: { order: 1, enabled: true, heading: "About" },
