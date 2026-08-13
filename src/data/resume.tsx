@@ -41,7 +41,7 @@ export const DATA = {
     education: { order: 3, enabled: true, heading: "Education" },
     skills: { order: 4, enabled: true, heading: "Skills" },
     projects: {
-      order: 5, enabled: false,
+      order: 5, enabled: true,
       label: "Projects",
       heading: "Projects",
       text: "Placeholder — add a few projects worth highlighting here.",
@@ -207,14 +207,33 @@ export const DATA = {
   ],
   projects: [
     {
-      title: "Placeholder Project",
-      href: "",
+      title: "Knowledgebase MCP",
+      href: "https://github.com/jsundquist/knowledgebase",
       dates: "",
-      active: false,
-      description: "Placeholder — add a project description here.",
-      technologies: [],
-      links: [],
-      image: "",
+      active: true,
+      description: "MCP server giving Claude Code persistent, per-project memory via SQLLite and hook integration",
+      technologies: ['Python', 'FastMCP', 'SQLite', 'bash'],
+      links: [{
+        type: "Source",
+        href: "https://github.com/jsundquist/knowledgebase",
+        icon: <Icons.github className="size-3" />
+      }],
+      image: "/projects/knowledgebase-mcp.svg",
+      video: "",
+    },
+    {
+      title: "Transcript Search MCP",
+      href: "https://github.com/jsundquist/transcript-search-v2",
+      dates: "",
+      active: true,
+      description: "Search your Claude Code conversation history with an MCP server — full-text, semantic, and hybrid search over local transcripts, backed by SQLite + sqlite-vec.",
+      technologies: ['Python', 'MCP SDK', 'SQLite', 'sqlite-vec'],
+      links: [{
+        type: "Source",
+        href: "https://github.com/jsundquist/transcript-search-v2",
+        icon: <Icons.github className="size-3" />
+      }],
+      image: "/projects/transcript-search-mcp.svg",
       video: "",
     },
   ],

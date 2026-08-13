@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" height="400">
+  <rect width="800" height="400" fill="#1a1a1a"/>
+
+  <!-- database / persistent memory glyph -->
+  <g transform="translate(132,140)" fill="none" stroke="#fafafa" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="60" cy="20" rx="60" ry="20"/>
+    <path d="M0 20 V100 C0 112 27 122 60 122 C93 122 120 112 120 100 V20"/>
+    <path d="M0 60 C0 72 27 82 60 82 C93 82 120 72 120 60"/>
+  </g>
+
+  <text x="292" y="195" font-family="Helvetica, Arial, sans-serif" font-size="36" font-weight="600" fill="#fafafa">Knowledgebase MCP</text>
+  <text x="292" y="230" font-family="Helvetica, Arial, sans-serif" font-size="18" fill="#a3a3a3">Persistent memory for Claude Code</text>
+</svg>
