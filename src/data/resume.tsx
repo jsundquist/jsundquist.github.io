@@ -90,7 +90,7 @@ export const DATA = {
   ],
   navbar: [
     { href: "/", icon: House, label: "Home" },
-    { href: "/blog", icon: Library, label: "Blog" },
+    // { href: "/blog", icon: Library, label: "Blog" },
   ],
   contact: {
     social: {
