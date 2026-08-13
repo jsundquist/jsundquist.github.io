@@ -1,26 +1,29 @@
 import { test, expect } from '@playwright/test';
 
-test('home page loads and links to the other sections', async ({ page }) => {
+test('home page loads and renders the hero and sections', async ({ page }) => {
 	await page.goto('/');
 	await expect(page).toHaveTitle('Jonathan Sundquist');
-	await expect(page.getByRole('heading', { level: 1 })).toContainText("Hi, I'm Jonathan");
+	await expect(page.getByText("Hi, I'm Jonathan")).toBeVisible();
 
-	const nav = page.locator('header.site-header nav');
-	await expect(nav.getByRole('link', { name: 'About', exact: true })).toBeVisible();
-	await expect(nav.getByRole('link', { name: 'Resume', exact: true })).toBeVisible();
-	await expect(nav.getByRole('link', { name: 'Blog', exact: true })).toBeVisible();
+	await expect(page.locator('#about')).toBeVisible();
+	await expect(page.locator('#work')).toBeVisible();
+	await expect(page.locator('#skills')).toBeVisible();
+	await expect(page.locator('#projects').first()).toBeVisible();
+	await expect(page.locator('#contact')).toBeVisible();
 });
 
-test('about page renders', async ({ page }) => {
-	await page.goto('/about');
-	await expect(page).toHaveTitle(/About/);
-	await expect(page.getByRole('heading', { level: 1 })).toHaveText('About');
-});
+test('nav dock links to home and blog, and social links resolve', async ({ page }) => {
+	await page.goto('/');
 
-test('resume page renders', async ({ page }) => {
-	await page.goto('/resume');
-	await expect(page).toHaveTitle(/Resume/);
-	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Resume');
+	await expect(page.locator('a[href="/"]').first()).toBeVisible();
+	await expect(page.locator('a[href="/blog"]').first()).toBeVisible();
+
+	const githubLink = page.locator('a[href="https://github.com/jsundquist"]');
+	const linkedinLink = page.locator('a[href="https://linkedin.com/in/jonathansundquist"]');
+	await expect(githubLink).toBeVisible();
+	await expect(githubLink).toHaveAttribute('target', '_blank');
+	await expect(linkedinLink).toBeVisible();
+	await expect(linkedinLink).toHaveAttribute('target', '_blank');
 });
 
 test('blog index lists posts and links to a post', async ({ page }) => {
@@ -35,21 +38,11 @@ test('blog index lists posts and links to a post', async ({ page }) => {
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Hello, World');
 });
 
-test('nav links navigate between pages', async ({ page }) => {
-	await page.goto('/');
-	const nav = page.locator('header.site-header nav');
-
-	await nav.getByRole('link', { name: 'About', exact: true }).click();
-	await expect(page).toHaveURL(/\/about\/?$/);
-
-	await nav.getByRole('link', { name: 'Resume', exact: true }).click();
-	await expect(page).toHaveURL(/\/resume\/?$/);
-
-	await nav.getByRole('link', { name: 'Blog', exact: true }).click();
-	await expect(page).toHaveURL(/\/blog\/?$/);
-
-	await nav.getByRole('link', { name: 'Jonathan Sundquist' }).click();
+test('nav dock navigates from blog back to home', async ({ page }) => {
+	await page.goto('/blog');
+	await page.locator('a[href="/"]').first().click();
 	await expect(page).toHaveURL(/\/$/);
+	await expect(page.getByText("Hi, I'm Jonathan")).toBeVisible();
 });
 
 test('unknown route returns a 404', async ({ page }) => {

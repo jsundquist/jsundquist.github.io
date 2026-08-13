@@ -24,7 +24,7 @@ export default defineConfig({
 		// Astro's dev/preview servers auto-daemonize when run by an agent
 		// (e.g. Claude Code), which breaks Playwright's process management.
 		// ASTRO_PREVIEW_BACKGROUND opts back into normal foreground behavior.
-		command: `npm run build && ASTRO_PREVIEW_BACKGROUND=false npm run preview -- --port ${PORT}`,
+		command: `pnpm exec astro build && ASTRO_PREVIEW_BACKGROUND=false pnpm exec astro preview --port ${PORT}`,
 		url: baseURL,
 		reuseExistingServer: !process.env.CI,
 		timeout: 60_000,
