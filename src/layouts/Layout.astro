@@ -132,6 +132,17 @@ const { baseFontSize } = CONFIG.typography;
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
+
+    <!-- Cloudflare Web Analytics -->
+    {
+      import.meta.env.PROD && (
+        <script
+          defer
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon='{"token": "72e96e7404984bb79194072f4bb04cde"}'
+        />
+      )
+    }
   </head>
   <body class="min-h-screen bg-background font-sans antialiased relative">
     <!-- FlickeringGrid header background - matches template exactly -->
