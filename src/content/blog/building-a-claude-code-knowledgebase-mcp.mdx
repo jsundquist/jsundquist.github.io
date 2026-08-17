@@ -1,0 +1,54 @@
+---
+title: "Building my own memory MCP server for Claude Code"
+publishedAt: "2026-08-17"
+summary: "A friend mentioned they'd built their own knowledgebase MCP server. That one offhand comment was enough to send me down the rabbit hole — here's what I built, why it's designed the way it is, and how to set it up yourself."
+---
+
+A friend mentioned, almost in passing, that they'd built their own knowledgebase MCP server for Claude Code. That was it — no code, no writeup, just "I made a thing that gives Claude memory." I didn't ask for details. I didn't need them. The idea alone was enough: Claude Code sessions are stateless, and I was tired of it.
+
+Every new session started from zero. I'd re-explain the same architecture, re-discover the same gotcha, watch Claude confidently re-propose an approach we'd already ruled out the day before. None of that knowledge survived past the session that produced it. So I sat down and built [Knowledgebase](https://github.com/jsundquist/knowledgebase) — my own version of the idea, designed from scratch, of a persistent, per-project memory for Claude Code.
+
+## What it actually does
+
+The whole thing is a local SQLite database (`~/.claude/knowledgebase.db`) with full-text search, wired into Claude Code's hook system so capture and recall both happen automatically instead of depending on anyone — me or Claude — remembering to take notes:
+
+- **`UserPromptSubmit`** runs on every prompt. It searches the current project's saved entries and injects a `<kb-context>` block into the conversation before Claude even starts working. This is the recall half — it happens whether or not anyone asks for it.
+- **MCP tools** (`kb_add_entry`, `kb_search`, `kb_get_project`, and a few others) let Claude read and write knowledge explicitly, mid-session, when something worth keeping comes up.
+- **`Stop`** fires at the end of every session as a backstop, nudging a last capture pass before the session closes.
+- **`PreCompact` / `SessionEnd`** auto-save a summary on `/compact` and `/clear` — the two moments where context disappears *before* Claude gets a chance to save anything itself.
+
+Put together, it reads like this: prompt goes in, relevant past knowledge comes back out, Claude works and optionally saves something new, and when the session ends — cleanly or via `/clear` — there's one more chance to hold onto what mattered.
+
+## The decision I spent the most time on
+
+The auto-save feature on `/clear`/`/compact` needs something to actually write the summary, and the obvious choice was to just shell out to `claude -p` and let the CLI do the summarizing. I didn't do that.
+
+Both this project and a sibling MCP I built for [searching my own transcript history](https://github.com/jsundquist/transcript-search-v2) are meant to work as general tools, not as things permanently welded to whichever chat client I happen to be using today. So the summarizer is pluggable: it looks for `KB_SUMMARIZER_CMD` first — any shell command that reads a transcript on stdin and writes back `{"title", "body", "tags", "type"}` on stdout — and falls back to calling the Anthropic API directly over HTTPS (not the CLI) if `ANTHROPIC_API_KEY` is set. If neither is configured, it just no-ops silently. Nothing breaks, nothing is forced on you.
+
+It also tracks its own progress — a small `hook_state` table keyed on transcript path and last line read — so a long session that triggers `/compact` five times doesn't produce five overlapping summaries. Each firing only summarizes what's new since the last one.
+
+## Running your own tooling has its own bugs
+
+At one point I went looking for why `/clear` wasn't triggering an auto-save at all, and the answer wasn't in the summarizer logic — it was that the `SessionEnd` and `PreCompact` hooks were never actually registered. My dotfiles repo pins this project as a submodule, and that submodule was still checked out at a commit from *before* those two hooks existed. The install script was working perfectly; it was installing a version of the project that was already out of date.
+
+It's a small thing, but it was a good reminder that building your own dev tooling doesn't exempt you from normal dev tooling problems — stale pins, silent no-ops, config drift. The fix was boring: bump the submodule, rerun `install.sh`.
+
+## Try it yourself
+
+If you want the same thing:
+
+```bash
+git clone https://github.com/jsundquist/knowledgebase
+cd knowledgebase
+./install.sh
+```
+
+Prerequisites are just Python 3.11+ and [`uv`](https://docs.astral.sh/uv/). The install script runs `uv sync`, registers the MCP server in `~/.claude.json`, and wires all four hooks into `~/.claude/settings.json`. It's safe to re-run if you update later. Restart Claude Code afterward and it's live — no further setup needed for the core recall/capture loop.
+
+The auto-save-on-`/clear` feature is opt-in on top of that. If you want it, set either `KB_SUMMARIZER_CMD` to point at your own summarization script, or set `ANTHROPIC_API_KEY` to let it call the Anthropic API directly with a small model. Worth being deliberate about the second option specifically — it means a transcript excerpt leaves your machine every time you `/clear` or `/compact`. That's a real tradeoff, not just a checkbox, and it's why the whole feature does nothing at all until you explicitly choose one of the two.
+
+## What it's gotten me
+
+The honest answer is that it's undramatic in the best way. Sessions pick up where the last one left off without me doing anything special — a decision made on Tuesday is still known on Thursday, a dead end I already ruled out doesn't get re-proposed, and the parts of a project that are genuinely tedious to re-explain just... aren't, anymore. It's not flashy. It's the difference between working with a colleague who remembers the project and one who's meeting it fresh every single morning.
+
+All from one sentence a friend mentioned in passing about a thing they'd built for themselves.
