@@ -1,0 +1,46 @@
+---
+title: "Giving Claude Code a way to search its own past"
+publishedAt: "2026-08-27"
+summary: "Knowledgebase only remembers what gets explicitly written down. I wanted the rest of it too — every past session, searchable — so I built an MCP server that indexes my own Claude Code transcripts."
+---
+
+A few weeks ago I wrote about [Knowledgebase](https://github.com/jsundquist/knowledgebase), the memory MCP server I built so Claude Code would stop forgetting decisions between sessions. It works, but it only remembers what someone wrote down. Most of a session isn't a decision — it's exploration, dead ends, commands that fixed something, phrases Claude used that I wanted to find again. None of that gets captured, and all of it is sitting on disk anyway: Claude Code writes every session to a `.jsonl` transcript under `~/.claude/projects/`. I couldn't search any of it, so I built [transcript-search](https://github.com/jsundquist/transcript-search-mcp), an MCP server that indexes those transcripts so I can query my own history instead of trying to remember it.
+
+## What it actually does
+
+It watches `~/.claude/projects/**/*.jsonl` and indexes everything into one local SQLite database, then exposes that index as MCP tools:
+
+- **`keyword_search` / `semantic_search` / `hybrid_search`** — full-text, meaning-based, and combined search (reciprocal-rank fusion, reranked by signal and recency) over everything that's ever been said in a session, filterable by project and date range.
+- **`get_context` / `get_session`** — full-fidelity recall that re-reads the raw `.jsonl` file when a search result is close but I need the whole exchange around it.
+- **`list_sessions` / `get_period`** — browse by recency or date range with no keyword at all, for "what was I working on last Tuesday?"
+- **`get_usage`** — token/cost breakdown by model, session, or day, mostly because once the data was indexed anyway, the question was free to answer.
+
+Under the hood, each session is chunked per content block — text, thinking, tool calls, tool results — not per message, and every chunk gets tagged with a signal level (high/medium/low) so a hundred lines of `tool_result` noise doesn't bury the one sentence I actually want back.
+
+## The decision I spent the most time on
+
+The obvious architecture is a SQLite table for metadata plus a dedicated vector store for embeddings. I didn't do that. Everything — the FTS5 keyword index, the sqlite-vec vector index, and the source-of-truth chunk rows — lives in one SQLite database, written in the same transaction, so keyword and semantic search stay aligned.
+
+The reason is drift. The moment keyword search and semantic search live in separate systems, you can end up with a chunk that's findable one way and not the other, and you won't know it until a search comes back empty for something you know you said. Keeping it all in one database, one transaction, means a chunk exists everywhere or nowhere — there's no partial state to debug at 11 pm.
+
+That constraint pushed a second design: ingestion and embedding run as two decoupled loops instead of one. A chunk gets written and is keyword-searchable immediately; a separate loop polls for un-embedded chunks and catches semantic search up shortly after. It sounds like it reintroduces the drift problem, but it doesn't — the "single transaction" guarantee is about the row always existing consistently, not about every index being populated in the same instant. A chunk with no embedding yet is a known, queryable state (`embedded = 0`), not a silent gap.
+
+## Running your own tooling has its own bugs
+
+FTS5 has opinions about hyphens. The very first smoke test of the freshly built `keyword_search`, against real indexed data, was a query for `sqlite-vec` — one of the project's own dependencies, and the most natural thing to type first. It didn't just come back empty; it crashed outright, an `OperationalError` straight out of SQLite. A bare `-` in FTS5's query syntax isn't a literal character; it's the NOT operator, so `sqlite-vec` was being parsed as "sqlite, minus anything mentioning vec" — and mishandled well enough to blow up rather than return nothing.
+
+The fix is a `_sanitize_fts_query` step that quotes each term before it hits FTS5, added in the same sitting, with an integration test fixture for hyphenated terms so it can't quietly regress. The moral: the first query you run against your own search tool will find the bug you didn't know you had.
+
+## Try it yourself
+
+```bash
+git clone https://github.com/jsundquist/transcript-search-mcp
+cd transcript-search-mcp
+uv sync
+```
+
+Copy the relevant block from `mcp.json.example` into your `~/.claude.json`, restart Claude Code, and it starts backfilling immediately. Embeddings run locally via `sentence-transformers` — no API calls, no data leaves the machine — which matters more here than in most tools I've built.
+
+## What it's gotten me
+
+I can ask "what did we land on for the auth middleware rewrite" and get the actual exchange back instead of trying to reconstruct it from memory or `git log`. Knowledgebase still handles the things worth remembering on purpose; this handles everything else — which, it turns out, is most of it.

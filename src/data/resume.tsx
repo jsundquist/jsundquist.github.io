@@ -223,14 +223,14 @@ export const DATA = {
     },
     {
       title: "Transcript Search MCP",
-      href: "https://github.com/jsundquist/transcript-search-v2",
+      href: "https://github.com/jsundquist/transcript-search-mcp",
       dates: "",
       active: true,
       description: "Search your Claude Code conversation history with an MCP server — full-text, semantic, and hybrid search over local transcripts, backed by SQLite + sqlite-vec.",
       technologies: ['Python', 'MCP SDK', 'SQLite', 'sqlite-vec'],
       links: [{
         type: "Source",
-        href: "https://github.com/jsundquist/transcript-search-v2",
+        href: "https://github.com/jsundquist/transcript-search-mcp",
         icon: <Icons.github className="size-3" />
       }],
       image: "/projects/transcript-search-mcp.svg",
