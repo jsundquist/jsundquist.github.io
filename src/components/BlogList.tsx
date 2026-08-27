@@ -1,5 +1,7 @@
 import BlurFade from "@/components/magicui/blur-fade";
+import { Badge } from "@/components/ui/badge";
 import { ChevronRight } from "lucide-react";
+import { slugifyTag } from "@/lib/utils";
 
 const BLUR_FADE_DELAY = 0.04;
 
@@ -7,6 +9,7 @@ interface Post {
   id: string;
   title: string;
   publishedAt: string;
+  tags?: string[];
 }
 
 interface Pagination {
@@ -21,9 +24,10 @@ interface BlogListProps {
   allPostsCount: number;
   pagination: Pagination;
   pageSize: number;
+  activeTag?: string;
 }
 
-export default function BlogList({ posts, allPostsCount, pagination, pageSize }: BlogListProps) {
+export default function BlogList({ posts, allPostsCount, pagination, pageSize, activeTag }: BlogListProps) {
   return (
     <section id="blog">
       <BlurFade delay={BLUR_FADE_DELAY}>
@@ -34,7 +38,16 @@ export default function BlogList({ posts, allPostsCount, pagination, pageSize }:
           </span>
         </h1>
         <p className="text-sm text-muted-foreground mb-8">
-          My personal reflections about web development, life, and more.
+          {activeTag ? (
+            <>
+              Tagged <span className="font-medium text-foreground">{activeTag}</span>.{" "}
+              <a href="/blog" className="underline hover:text-foreground transition-colors">
+                Clear filter
+              </a>
+            </>
+          ) : (
+            "My personal reflections about web development, life, and more."
+          )}
         </p>
       </BlurFade>
 
@@ -68,6 +81,20 @@ export default function BlogList({ posts, allPostsCount, pagination, pageSize }:
                         </p>
                       </div>
                     </a>
+                    {post.tags && post.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2 ml-6">
+                        {post.tags.map((tag) => (
+                          <a key={tag} href={`/blog/tag/${slugifyTag(tag)}`}>
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] font-medium hover:bg-secondary/70 transition-colors"
+                            >
+                              {tag}
+                            </Badge>
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </BlurFade>
                 );
               })}

@@ -2,6 +2,7 @@
 title: "Giving Claude Code a way to search its own past"
 publishedAt: "2026-08-27"
 summary: "Knowledgebase only remembers what gets explicitly written down. I wanted the rest of it too — every past session, searchable — so I built an MCP server that indexes my own Claude Code transcripts."
+tags: ["MCP", "Claude Code", "Developer Tools", "SQLite"]
 ---
 
 A few weeks ago I wrote about [Knowledgebase](https://github.com/jsundquist/knowledgebase), the memory MCP server I built so Claude Code would stop forgetting decisions between sessions. It works, but it only remembers what someone wrote down. Most of a session isn't a decision — it's exploration, dead ends, commands that fixed something, phrases Claude used that I wanted to find again. None of that gets captured, and all of it is sitting on disk anyway: Claude Code writes every session to a `.jsonl` transcript under `~/.claude/projects/`. I couldn't search any of it, so I built [transcript-search](https://github.com/jsundquist/transcript-search-mcp), an MCP server that indexes those transcripts so I can query my own history instead of trying to remember it.

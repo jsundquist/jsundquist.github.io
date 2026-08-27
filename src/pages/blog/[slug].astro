@@ -3,8 +3,9 @@ export const prerender = true;
 import Layout from "@/layouts/Layout.astro";
 import { getCollection, render } from "astro:content";
 import { DATA } from "@/data/resume";
-import { formatDate } from "@/lib/utils";
+import { formatDate, slugifyTag } from "@/lib/utils";
 import { mdxComponents } from "@/mdx-components";
+import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export async function getStaticPaths() {
@@ -24,7 +25,7 @@ export async function getStaticPaths() {
 }
 
 const { post, previousPost, nextPost } = Astro.props;
-const { title, publishedAt, summary, image } = post.data;
+const { title, publishedAt, summary, image, tags } = post.data;
 const slug = post.id;
 
 const { Content } = await render(post);
@@ -78,6 +79,22 @@ const jsonLd = JSON.stringify({
       <p class="text-sm text-muted-foreground">
         {formatDate(publishedAt)}
       </p>
+      {
+        tags && tags.length > 0 && (
+          <div class="flex flex-wrap gap-1.5">
+            {tags.map((tag) => (
+              <a href={`/blog/tag/${slugifyTag(tag)}`}>
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] font-medium hover:bg-secondary/70 transition-colors"
+                >
+                  {tag}
+                </Badge>
+              </a>
+            ))}
+          </div>
+        )
+      }
     </div>
     <div class="my-6 flex w-full items-center">
       <div
