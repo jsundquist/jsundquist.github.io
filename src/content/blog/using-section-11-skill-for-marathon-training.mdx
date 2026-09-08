@@ -1,0 +1,32 @@
+---
+title: "Using Section 11 Skill for Marathon Training"
+publishedAt: "2026-09-08"
+summary:
+  "Section 11 is an AI coaching protocal that I've been using leading up to the 2026 Twin
+  Cities Marathon weekend"
+tags: ["Section11", "Claude Code", "AI", "Marathon", "Personal Life"]
+---
+
+For 2025, I took most of the year off from serious training for any event. Overall, I ran only three events, and two of them were easy 5k runs. At the 2025 Twin Cities Marathon Expo, I decided I needed to change that. I signed up for the Get In Gear half marathon in April with the intent of running the Ultra Loony Challenge at the Twin Cities Marathon Weekend in 2026. I knew that to accomplish my goal of running the Ultra Loony Challenge, which consists of running a 10k and 5k on Saturday followed by the full marathon on Sunday, I would need to get back into better shape.
+
+Sometime in early April, just before the Get In Gear half marathon, I came across an article about https://intervals.icu/ and https://github.com/CrankAddict/section-11. Both of these were just what I needed for my training. Intervals.icu gave me visibility into how my training was actually going, while Section 11 turned that data into something an AI coach could act on. I combined Section 11's output with my full seven years of running history and had Claude build a training plan to get me back in shape for Ultra Loony weekend.
+
+## What is Section 11 and why use it?
+
+Section 11 isn't like most other AI coaches that are out there; it isn't a subscription service or an app. It is an open-source coaching framework that can turn your raw training data into something that AI can reason with. At the core is a Python script which syncs your data from Intervals.icu - all of your activities, wellness metrics, training load - and writes it out as structured JSON files: `latest.json`, `history.json`, `intervals.json`, and `routes.json`. Those files become the "memory" the AI coach reads from every time you talk about your training. Additionally, the AI coach takes into context everything you have added to its `DOSSIER.md` file that contains information about you, the athlete.
+
+What has worked for me while using Section 11 is that I'm able to chat with the AI, in my case Claude Code and Claude, instead of just looking at a dashboard and trying to understand what I'm looking at. Claude can process the data that it reads from the JSON files and markdown file, provide me coaching advice, break down my recent training runs, and we can have a conversation about it. This has provided me with better insight into my actual training vs just trying to interpret the numbers the best that I could.
+
+## What does it take to get set up?
+
+Getting Section 11 running isn't complicated, but it does take a few steps. First, clone the https://github.com/CrankAddict/section-11 repo and copy `DOSSIER_TEMPLATE.md` to `DOSSIER.md`. This is where you fill in the details about yourself as an athlete: your training history, goals, HR zones, equipment, whatever context you choose the AI coach to factor into its advice.
+
+From there, connect it to Intervals.icu. Generate a personal API key from your account settings and wire it into the sync script along with your athlete ID. Section 11 supports a few different sync methods: local sync, GitHub Actions, or a manual/on-demand trigger. Since I'm running everything through Claude Code locally, local sync was the obvious choice; it just runs on a timer and keeps the JSON files fresh without me thinking about it.
+
+Once the sync is configured, you run it once to generate the initial `latest.json`, `history.json`, `intervals.json`, and `routes.json` files mentioned earlier. Then point Claude Code at `SECTION_11.md` (the protocol itself) and your `DOSSIER.md`, and let it read from the synced JSON directory. The smoke test is simple: ask “how was today's workout?” and see if it pulls the data automatically instead of asking you to upload something. Once that worked for me, I knew the setup was solid, and I could start actually using it for training decisions instead of just poking at it.
+
+## Where I'm at now
+
+Months into using Section 11, I can genuinely say the year off doesn't feel like it's holding me back anymore. My training load is climbing in a way that feels sustainable instead of forced, and having Claude in the loop to verify a hard week or talk me out of overdoing a long run has probably saved me from a setback or two already. I'm not going to pretend I'm all the way back to where I was before I took 2025 off - there's still real work between now and race weekend - but for the first time in a while I feel like the plan and the training are actually in sync, and that makes the next stretch feel manageable.
+
+That matters a lot given what I signed up for. The Ultra Loony Challenge isn't forgiving: a 10k and 5k on Saturday, then the full marathon on Sunday, all at the Twin Cities Marathon Weekend. Section 11 won't run any of those miles for me, but having a coach that actually understands my data - and that I can talk to instead of stare at - has made the buildup to Ultra Loony weekend feel a lot less like a guess and a lot more like a plan. That's what makes me feel ready to keep showing up and trust the work.
