@@ -6,6 +6,7 @@ import mdx from '@astrojs/mdx';
 import sitemap from '@astrojs/sitemap';
 import remarkGfm from 'remark-gfm';
 import rehypePrettyCode from 'rehype-pretty-code';
+import rehypeExternalLinks from 'rehype-external-links';
 import { unified } from '@astrojs/markdown-remark';
 import { remarkCodeMeta } from './src/lib/remark-code-meta.ts';
 import { CONFIG } from './src/data/config.ts';
@@ -39,7 +40,10 @@ export default defineConfig({
 		syntaxHighlight: false,
 		processor: unified({
 			remarkPlugins: [remarkGfm, remarkCodeMeta],
-			rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
+			rehypePlugins: [
+				[rehypePrettyCode, prettyCodeOptions],
+				[rehypeExternalLinks, { target: '_blank', rel: ['noopener', 'noreferrer'] }],
+			],
 		}),
 	},
 });
