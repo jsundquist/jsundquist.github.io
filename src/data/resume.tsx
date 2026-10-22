@@ -44,7 +44,7 @@ export const DATA = {
       order: 5, enabled: true,
       label: "Projects",
       heading: "Projects",
-      text: "Placeholder — add a few projects worth highlighting here.",
+      text: "Open source MCP servers I built to give Claude Code persistent memory and searchable conversation history.",
     },
     hackathons: {
       order: 7, enabled: false,
@@ -114,7 +114,7 @@ export const DATA = {
       company: "FactSet",
       href: "https://factset.com",
       badges: ["Backstage", "AWS Step Functions", "Terraform", "GitHub Actions", "PostgreSQL", "MCP"],
-      location: "Greater Minneapolis-St. Paul Area · Remote",
+      location: "Greater Minneapolis-St. Paul Area - Remote",
       title: "Principal Software Engineer",
       logoUrl: "/logos/factset-circle.png",
       start: "Oct 2020",
@@ -211,7 +211,7 @@ export const DATA = {
       href: "https://github.com/jsundquist/knowledgebase",
       dates: "",
       active: true,
-      description: "MCP server giving Claude Code persistent, per-project memory via SQLLite and hook integration",
+      description: "MCP server giving Claude Code persistent, per-project memory via SQLite and hook integration",
       technologies: ['Python', 'FastMCP', 'SQLite', 'bash'],
       links: [{
         type: "Source",
