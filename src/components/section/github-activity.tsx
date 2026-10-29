@@ -4,12 +4,13 @@ import type { Contributions } from "@/lib/github-contributions";
 
 const BLUR_FADE_DELAY = 0.04;
 
-const LEVEL_COLORS = [
-  "var(--muted)",
-  "color-mix(in srgb, var(--primary) 25%, transparent)",
-  "color-mix(in srgb, var(--primary) 50%, transparent)",
-  "color-mix(in srgb, var(--primary) 75%, transparent)",
-  "var(--primary)",
+// GitHub's contribution palette, light and dark variants
+const LEVEL_CLASSES = [
+  "bg-[#ebedf0] dark:bg-[#21262d]",
+  "bg-[#9be9a8] dark:bg-[#0e4429]",
+  "bg-[#40c463] dark:bg-[#006d32]",
+  "bg-[#30a14e] dark:bg-[#26a641]",
+  "bg-[#216e39] dark:bg-[#39d353]",
 ];
 
 export default function GithubActivity({
@@ -51,9 +52,8 @@ export default function GithubActivity({
               <div
                 key={day.date}
                 title={`${day.count} contribution${day.count === 1 ? "" : "s"} on ${day.date}`}
-                className="rounded-[2px]"
+                className={`rounded-[2px] ring-1 ring-inset ring-black/5 dark:ring-white/5 ${LEVEL_CLASSES[day.level]}`}
                 style={{
-                  backgroundColor: LEVEL_COLORS[day.level],
                   gridRow: index === 0 ? firstWeekday + 1 : undefined,
                 }}
               />
