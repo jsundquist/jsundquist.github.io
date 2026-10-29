@@ -2,6 +2,7 @@
 import "../styles/global.css";
 import { DATA } from "@/data/resume";
 import { CONFIG } from "@/data/config";
+import Footer from "@/components/footer.astro";
 import NavbarIsland from "@/components/NavbarIsland";
 import { FlickeringGrid } from "@/components/magicui/flickering-grid";
 
@@ -106,6 +107,13 @@ const { baseFontSize } = CONFIG.typography;
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={`${DATA.name} — Blog`}
+      href="/rss.xml"
+    />
+
     <!-- Primary meta -->
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
@@ -160,9 +168,10 @@ const { baseFontSize } = CONFIG.typography;
     </div>
 
     <!-- Main content wrapper - matches template's z-10 container exactly -->
-    <div class="relative z-10 max-w-2xl mx-auto py-12 pb-24 sm:py-24 px-6">
+    <div class="relative z-10 max-w-2xl mx-auto py-12 pb-8 sm:py-24 sm:pb-12 px-6">
       <slot />
     </div>
+    <Footer />
 
     <!-- Navbar: ThemeProvider + TooltipProvider + Navbar all in one React island -->
     <NavbarIsland client:load />
