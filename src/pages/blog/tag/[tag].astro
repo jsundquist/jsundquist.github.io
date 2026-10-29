@@ -2,6 +2,7 @@
 import Layout from "@/layouts/Layout.astro";
 import BlogList from "@/components/BlogList";
 import { getCollection } from "astro:content";
+import { getSortedPosts } from "@/lib/posts";
 import { paginate, normalizePage } from "@/lib/pagination";
 import { slugifyTag } from "@/lib/utils";
 
@@ -23,14 +24,9 @@ export async function getStaticPaths() {
 
 const { tag } = Astro.props;
 
-const allPosts = await getCollection("blog");
-const taggedPosts = allPosts.filter((post) =>
+const sortedPosts = (await getSortedPosts()).filter((post) =>
   post.data.tags?.some((t) => slugifyTag(t) === Astro.params.tag)
 );
-const sortedPosts = [...taggedPosts].sort((a, b) => {
-  if (new Date(a.data.publishedAt) > new Date(b.data.publishedAt)) return -1;
-  return 1;
-});
 
 const pageParam = Astro.url.searchParams.get("page") ?? undefined;
 const totalPages = Math.ceil(sortedPosts.length / PAGE_SIZE);
