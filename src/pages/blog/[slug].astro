@@ -1,7 +1,8 @@
 ---
 export const prerender = true;
 import Layout from "@/layouts/Layout.astro";
-import { getCollection, render } from "astro:content";
+import { render } from "astro:content";
+import { getSortedPosts, readingTime } from "@/lib/posts";
 import { DATA } from "@/data/resume";
 import { formatDate, slugifyTag } from "@/lib/utils";
 import { mdxComponents } from "@/mdx-components";
@@ -9,11 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export async function getStaticPaths() {
-  const posts = await getCollection("blog");
-  const sortedPosts = [...posts].sort((a, b) => {
-    if (new Date(a.data.publishedAt) > new Date(b.data.publishedAt)) return -1;
-    return 1;
-  });
+  const sortedPosts = await getSortedPosts();
   return sortedPosts.map((post, index) => ({
     params: { slug: post.id },
     props: {
@@ -29,6 +26,7 @@ const { title, publishedAt, summary, image, tags } = post.data;
 const slug = post.id;
 
 const { Content } = await render(post);
+const minutes = readingTime(post.body);
 
 const jsonLd = JSON.stringify({
   "@context": "https://schema.org",
@@ -77,7 +75,7 @@ const jsonLd = JSON.stringify({
         {title}
       </h1>
       <p class="text-sm text-muted-foreground">
-        {formatDate(publishedAt)}
+        {formatDate(publishedAt)} · {minutes} min read
       </p>
       {
         tags && tags.length > 0 && (
