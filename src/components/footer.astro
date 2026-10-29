@@ -10,20 +10,6 @@ const year = new Date().getFullYear();
   >
     <p>© {year} {DATA.name}</p>
     <ul class="flex items-center gap-4">
-      {
-        Object.values(DATA.contact.social).map((social) => (
-          <li>
-            <a
-              href={social.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="hover:text-foreground transition-colors"
-            >
-              {social.name}
-            </a>
-          </li>
-        ))
-      }
       <li>
         <a href="/rss.xml" class="hover:text-foreground transition-colors">RSS</a>
       </li>
