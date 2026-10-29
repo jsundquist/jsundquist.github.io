@@ -10,6 +10,9 @@ import HackathonsSection from "@/components/section/hackathons-section";
 import PhotosSection from "@/components/section/photos-section";
 import ProjectsSection from "@/components/section/projects-section";
 import WorkSection from "@/components/section/work-section";
+import RecentPosts, { type RecentPost } from "@/components/section/recent-posts";
+import GithubActivity from "@/components/section/github-activity";
+import type { Contributions } from "@/lib/github-contributions";
 import { ArrowUpRight } from "lucide-react";
 
 const BLUR_FADE_DELAY = 0.04;
@@ -129,7 +132,26 @@ const sectionComponents: Record<string, React.ReactNode> = {
   ),
 };
 
-export default function HomePage() {
+interface HomePageProps {
+  recentPosts?: RecentPost[];
+  contributions?: Contributions | null;
+}
+
+export default function HomePage({ recentPosts = [], contributions = null }: HomePageProps) {
+  const allSections: Record<string, React.ReactNode> = {
+    ...sectionComponents,
+    recentPosts: recentPosts.length > 0 && (
+      <section id="recent-posts">
+        <RecentPosts posts={recentPosts} />
+      </section>
+    ),
+    githubActivity: contributions && (
+      <section id="github-activity">
+        <GithubActivity contributions={contributions} />
+      </section>
+    ),
+  };
+
   const orderedSections = Object.entries(DATA.sections)
     .filter(([, s]) => s.enabled)
     .sort(([, a], [, b]) => a.order - b.order)
@@ -164,7 +186,7 @@ export default function HomePage() {
       </section>
       {orderedSections.map((key) => (
         <React.Fragment key={key}>
-          {sectionComponents[key]}
+          {allSections[key]}
         </React.Fragment>
       ))}
     </main>

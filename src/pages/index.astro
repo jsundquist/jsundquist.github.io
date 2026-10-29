@@ -2,8 +2,22 @@
 export const prerender = true;
 import Layout from "../layouts/Layout.astro";
 import HomePage from "@/components/HomePage";
+import { getSortedPosts, readingTime } from "@/lib/posts";
+import { getContributions } from "@/lib/github-contributions";
+
+const sortedPosts = await getSortedPosts();
+const recentPosts = sortedPosts.slice(0, 3).map((post) => ({
+  id: post.id,
+  title: post.data.title,
+  publishedAt: post.data.publishedAt,
+  summary: post.data.summary,
+  tags: post.data.tags,
+  readingTime: readingTime(post.body),
+}));
+
+const contributions = await getContributions("jsundquist");
 ---
 
 <Layout>
-  <HomePage client:load />
+  <HomePage client:load recentPosts={recentPosts} contributions={contributions} />
 </Layout>
