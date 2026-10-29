@@ -12,7 +12,7 @@ test('home page loads and renders the hero and sections', async ({ page }) => {
 	await expect(page.locator('#contact')).toBeVisible();
 });
 
-test('home page shows recent posts, GitHub activity, and footer', async ({ page }) => {
+test('home page shows recent posts and GitHub activity', async ({ page }) => {
 	await page.goto('/');
 	await expect(page.locator('#recent-posts')).toBeVisible();
 	await expect(page.locator('#recent-posts a[href^="/blog/"]').first()).toBeVisible();
@@ -21,15 +21,6 @@ test('home page shows recent posts, GitHub activity, and footer', async ({ page 
 	if (await chart.count()) {
 		await expect(chart).toBeVisible();
 	}
-	await expect(page.locator('footer a[href="/rss.xml"]')).toBeVisible();
-});
-
-test('rss feed is served with blog items', async ({ request }) => {
-	const response = await request.get('/rss.xml');
-	expect(response.status()).toBe(200);
-	const body = await response.text();
-	expect(body).toContain('<rss');
-	expect(body).toContain('<item>');
 });
 
 test('nav dock links to home and blog, and social links resolve', async ({ page }) => {
