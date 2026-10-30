@@ -18,7 +18,7 @@
   "dependencies": {
     "@astrojs/markdown-remark": "^7.3.4",
     "@astrojs/mdx": "^7.0.5",
-    "@astrojs/react": "^6.0.2",
+    "@astrojs/react": "^7.1.1",
     "@astrojs/sitemap": "^3.7.4",
     "@fontsource-variable/geist-mono": "^5.2.7",
     "@fontsource-variable/outfit": "^5.2.8",
