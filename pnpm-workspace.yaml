@@ -1,2 +1,9 @@
 allowBuilds:
   esbuild: true
+
+# Transitive deps pinned to vulnerable exact versions by their parents
+# (@astrojs/internal-helpers pins js-yaml, @tailwindcss/typography pins
+# postcss-selector-parser), so Dependabot can't bump them itself.
+overrides:
+  js-yaml: ^4.3.2
+  postcss-selector-parser: ^6.1.5
