@@ -63,12 +63,11 @@ jobs:
       pull-requests: write
       actions: write
     steps:
+      # Fails the job if the PR isn't genuinely from Dependabot.
       - name: Fetch Dependabot metadata
-        id: metadata
         uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2
 
       - name: Merge
-        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -77,7 +76,6 @@ jobs:
       # Merges made with GITHUB_TOKEN don't trigger the push event, so deploy.yml
       # would never run. Dispatch it explicitly.
       - name: Deploy
-        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run deploy.yml --repo "$GITHUB_REPOSITORY" --ref main
