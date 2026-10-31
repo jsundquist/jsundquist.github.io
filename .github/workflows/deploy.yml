@@ -102,3 +102,27 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/${{ github.repository }}:${{ steps.tag.outputs.tag }}
+
+  bump:
+    needs: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    env:
+      GITOPS_REPO: jsundquist/k8s-gitops
+    steps:
+      - name: Checkout GitOps repo
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: ${{ env.GITOPS_REPO }}
+          token: ${{ secrets.GITOPS_TOKEN }}
+
+      - name: Pin new image tag
+        run: yq -i '.images[0].newTag = "${{ needs.image.outputs.tag }}"' apps/blog/kustomization.yaml
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore(blog): deploy ${{ needs.image.outputs.tag }}"
+          git push
