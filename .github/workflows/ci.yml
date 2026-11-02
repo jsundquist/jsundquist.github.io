@@ -82,10 +82,36 @@ jobs:
         with:
           advanced-security: false
 
+  # Blocks pull requests that introduce dependencies with known high/critical advisories.
+  dependency-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: never
+
   automerge:
-    needs: validate
+    needs: [validate, actionlint, zizmor, dependency-review]
     # Only PRs *authored* by Dependabot. Uses the PR author, not github.actor,
     # so a human re-running or pushing to a PR can't trigger a merge.
+    #
+    # What actually gets merged is narrower, see "Decide" below: npm devDependencies,
+    # patch/minor only. Everything else (production deps, majors, every github-actions
+    # PR) stays open for a human.
+    #
+    # Caveat: a devDependency is not automatically harmless. For an Astro site much of
+    # the "dev" tooling (build plugins, type/lint/format tools run at build time) can
+    # still alter the built output. This reduces risk, it is not a guarantee. The
+    # 7-day Dependabot cooldown is the main defence for these updates, with the
+    # validate/dependency-review/zizmor checks as a second layer.
     if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -96,9 +122,32 @@ jobs:
     steps:
       # Fails the job if the PR isn't genuinely from Dependabot.
       - name: Fetch Dependabot metadata
+        id: metadata
         uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2
 
+      # Grouped PRs carry several dependencies, so check every entry rather than the
+      # single top-level outputs. Fails closed: anything unexpected means no merge.
+      - name: Decide
+        id: decide
+        env:
+          UPDATED_DEPENDENCIES: ${{ steps.metadata.outputs.updated-dependencies-json }}
+        run: |
+          set -euo pipefail
+          if jq -e '
+            length > 0 and all(
+              .dependencyType == "direct:development"
+              and (.updateType | IN("version-update:semver-patch", "version-update:semver-minor"))
+              and (.packageEcosystem | IN("npm", "npm_and_yarn"))
+            )
+          ' <<< "$UPDATED_DEPENDENCIES" > /dev/null; then
+            echo "merge=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "merge=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Not an npm dev-dependency patch/minor update; leaving the PR open for review"
+          fi
+
       - name: Merge
+        if: steps.decide.outputs.merge == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -107,6 +156,7 @@ jobs:
       # Merges made with GITHUB_TOKEN don't trigger the push event, so deploy.yml
       # would never run. Dispatch it explicitly.
       - name: Deploy
+        if: steps.decide.outputs.merge == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run deploy.yml --repo "$GITHUB_REPOSITORY" --ref main
