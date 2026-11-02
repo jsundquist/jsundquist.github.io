@@ -203,7 +203,8 @@ jobs:
           push-to-registry: true
           create-storage-record: false
 
-  # bump still pins by tag; pinning by digest changes the contract with k8s-gitops and is a separate change.
+  # bump writes the tag and the signed image digest together (kustomize renders name:tag@sha256:...), so the cluster
+  # runs exactly the image that was scanned, signed and attested, not whatever the tag points to later.
   bump:
     needs: [image, sign]
     runs-on: ubuntu-latest
@@ -226,15 +227,26 @@ jobs:
       - name: Pin new image tag and push
         env:
           NEW_TAG: ${{ needs.image.outputs.tag }}
+          DIGEST: ${{ needs.image.outputs.digest }}
           FILE: apps/blog/kustomization.yaml
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Returns 1 when the file already pins NEW_TAG (nothing to commit)
+          # Never write a tag without a valid digest for it
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::Not a valid image digest: '${DIGEST}'"; exit 1; }
+
+          # Returns 1 when the file already pins NEW_TAG and DIGEST (nothing to commit).
+          # Tag and digest are written together and read back. The explicit "|| exit 1" matters: set -e is off inside
+          # a function that is called from an if, so a failed check would otherwise be ignored.
           pin_and_commit() {
-            yq -i '.images[0].newTag = strenv(NEW_TAG)' "$FILE"
+            yq -i '
+              (.images[] | select(.name == "ghcr.io/jsundquist/jsundquist.github.io") | .newTag) = strenv(NEW_TAG) |
+              (.images[] | select(.name == "ghcr.io/jsundquist/jsundquist.github.io") | .digest) = strenv(DIGEST)
+            ' "$FILE" || exit 1
+            yq -e '[.images[] | select(.name == "ghcr.io/jsundquist/jsundquist.github.io" and .newTag == strenv(NEW_TAG) and .digest == strenv(DIGEST))] | length == 1' "$FILE" >/dev/null \
+              || { echo "::error::${FILE} does not pin the blog image after the update"; exit 1; }
             if git diff --quiet; then
               return 1
             fi
