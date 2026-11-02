@@ -1,6 +1,10 @@
 allowBuilds:
   esbuild: true
 
+# Refuse versions published less than 1 day ago (minutes). Applies to manual
+# `pnpm add` and fresh resolution; Dependabot adds its own 7-day cooldown.
+minimumReleaseAge: 1440
+
 # Transitive deps pinned to vulnerable exact versions by their parents
 # (@astrojs/internal-helpers pins js-yaml, @tailwindcss/typography pins
 # postcss-selector-parser), so Dependabot can't bump them itself.
