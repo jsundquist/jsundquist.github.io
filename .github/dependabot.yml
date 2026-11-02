@@ -7,6 +7,13 @@ updates:
     cooldown:
       default-days: 7
     groups:
+      # Dev-only PRs come first so they can be auto-merged (see automerge in ci.yml);
+      # remaining minor/patch updates (production deps) stay in a PR for review
+      dev-minor-and-patch:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
       minor-and-patch:
         update-types:
           - minor
