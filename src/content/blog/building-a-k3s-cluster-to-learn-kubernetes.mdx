@@ -1,0 +1,84 @@
+---
+title: "Building a k3s cluster to finally learn Kubernetes"
+publishedAt: "2026-11-02"
+summary:
+  "I first heard about Argo CD at BackstageCon in 2022 and had no idea what it was. This
+  weekend I stood up a k3s cluster to find out, and I'm being honest about how much of it
+  I actually understand."
+tags: ["Kubernetes", "k3s", "GitOps", "Argo CD", "Platform Engineering", "Claude Code"]
+---
+
+In 2022 my company sent me to BackstageCon, a mini conference attached to KubeCon in
+Detroit. I had heard of Kubernetes before then, but not much more than the name. I went to
+a few sessions and most of it went over my head. I was a frontend developer, and this
+wasn't a space I worked in. I left curious, but not curious enough to do anything about
+it.
+
+Honestly, the reason was a mixture of time and interest. I've been interested in learning
+Kubernetes, but I never had a deep drive to do it. It also felt a bit out of reach. I
+didn't have a reason to learn it, and I didn't have anything to practice on. What changed
+is that I recently started to look for a new job in platform engineering. Kubernetes,
+Terraform, and tools like them kept showing up in the job postings, and that was reason
+enough to finally dig in.
+
+Last week I looked on LinkedIn Learning for Kubernetes courses and picked
+[Kubernetes Step-by-Step](https://www.linkedin.com/learning/kubernetes-step-by-step-by-pearson).
+I expected a guided walkthrough of setting up a cluster, and it was listed as the newest
+release. In practice the material was from 2023, and the instructor felt all over the
+place, so I had a hard time following along. I didn't get much out of it. Maybe other
+courses will work better, and I might try some soon, but my plan was to get the basics and
+then learn by building something. So that's what I did this weekend.
+
+## What I built
+
+I had two real applications that I wanted to deploy. The first is this blog, a very basic
+static site built with Astro. The second is slightly more complex: a software bill of
+materials (SBOM) application. I upload an SBOM for each project, and it shows me which
+packages I ship and which known vulnerabilities affect them. It's a Next.js app backed by
+a Postgres database, with a worker process that looks up vulnerabilities from
+[OSV.dev](https://osv.dev).
+
+I deployed both to a single-node [k3s](https://k3s.io) cluster on a DigitalOcean droplet.
+I also wanted to use GitOps, so I set up Argo CD to watch my git repository and
+automatically deploy any changes I make. Almost nothing gets applied by hand. I commit,
+and the cluster catches up. Everything lives in a public repo,
+[k8s-gitops](https://github.com/jsundquist/k8s-gitops).
+
+I didn't do it alone. I started out using Claude Code as a mentor, having it guide me
+through each step. That felt slow, so I eventually asked it to build most of it for me. It
+would ask me questions about the direction I wanted to go, and then build it out based on
+my answers. That means I made the decisions, but I didn't type most of the YAML.
+
+## What I actually have
+
+A working cluster, and mostly a black box. If you asked me to explain Services, Ingress,
+Kustomize, or Deployments in my own words, I would struggle. I don't think I've learned
+how to build this yet. I got a baseline that works, and that's different from
+understanding it. I even had a tour of the repository written for me, because I needed a
+guide to my own cluster.
+
+Some things did break along the way, and they've been the most useful part so far because
+each one forced me to look at how a piece actually works:
+
+- **Ordering.** A database migration tried to run before Postgres existed. Argo CD lets
+  you set the order things sync in, and now I know why you'd want to.
+- **Networking.** My own network policy blocked cert-manager from getting an HTTPS
+  certificate. The policy is checked after traffic has been rerouted inside the cluster,
+  so the rule I wrote for the public address never matched.
+- **Real visitors.** Every visitor looked like the same IP address, so they all shared one
+  rate limit. k3s was rewriting each visitor's address to the node's own, and a single
+  setting on the Traefik service fixed it.
+
+I also had a document claiming that the blog was hardened, and it wasn't true until I
+actually read the Deployment. That one stuck with me. Writing down that something is done
+is not the same as checking.
+
+So where does that leave me? With a baseline I can use as example code for building other
+applications, break on purpose to see what happens, and treat as a lab where I can build
+and destroy whatever I'm trying out.
+
+The next thing I plan to deploy is a Backstage application with the Argo CD plugin. I
+didn't expose the Argo CD dashboard, so Backstage gives me a way to see what's going on in
+the cluster. I find that a fun way to end up here. BackstageCon is where I first heard of
+Argo CD, and now I'm planning to run Backstage to look at my own Argo CD. I still have
+plenty to learn, but now I have something real to learn it on.
