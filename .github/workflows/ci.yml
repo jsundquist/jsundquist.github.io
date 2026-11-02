@@ -98,8 +98,50 @@ jobs:
           fail-on-severity: high
           comment-summary-in-pr: never
 
+  # Scans the full git history for committed secrets.
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Scan for secrets
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Audits every dependency, dev included: build-time tooling can alter the built site.
+  # security.yml runs the same audit weekly to catch advisories published after merge.
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
+
   automerge:
-    needs: [validate, actionlint, zizmor, dependency-review]
+    needs: [validate, actionlint, zizmor, dependency-review, secrets, dependency-audit]
     # Only PRs *authored* by Dependabot. Uses the PR author, not github.actor,
     # so a human re-running or pushing to a PR can't trigger a merge.
     #
