@@ -6,10 +6,13 @@ test.skip(process.platform !== 'linux', 'visual baselines are Linux-only');
 
 const POST = '/blog/building-a-claude-code-knowledgebase-mcp';
 
+// Sections whose content grows with every new post (recent-posts list, blog
+// list with its post count and pagination). Their height is pinned and their
+// content masked so publishing a post doesn't invalidate the baselines.
 const pages = [
-	{ name: 'home', path: '/' },
-	{ name: 'blog-index', path: '/blog' },
-	{ name: 'blog-post', path: POST },
+	{ name: 'home', path: '/', dynamic: '#recent-posts' },
+	{ name: 'blog-index', path: '/blog', dynamic: '#blog' },
+	{ name: 'blog-post', path: POST, dynamic: undefined },
 ];
 
 const viewports = [
@@ -20,17 +23,27 @@ const viewports = [
 // The contribution chart is fetched from a third-party API at build time and
 // changes daily, so it is masked. Its grid is a fixed height, so masking keeps
 // the surrounding layout stable.
-async function snapshot(page: Page, name: string) {
+async function snapshot(page: Page, name: string, dynamic?: string) {
 	const chart = page.locator('#github-activity');
 	test.skip(
 		name.startsWith('home') && (await chart.count()) === 0,
 		'contribution chart unavailable at build time; layout would shift',
 	);
 
+	const masks = [chart];
+	if (dynamic) {
+		const section = page.locator(dynamic);
+		await section.evaluate((el) => {
+			el.style.height = '480px';
+			el.style.overflow = 'hidden';
+		});
+		masks.push(section);
+	}
+
 	await expect(page).toHaveScreenshot(`${name}.png`, {
 		fullPage: true,
 		animations: 'disabled',
-		mask: [chart],
+		mask: masks,
 	});
 }
 
@@ -41,11 +54,11 @@ for (const viewport of viewports) {
 			colorScheme: 'light',
 		});
 
-		for (const { name, path } of pages) {
+		for (const { name, path, dynamic } of pages) {
 			test(`${name} matches snapshot`, async ({ page }) => {
 				await page.goto(path);
 				await page.waitForLoadState('networkidle');
-				await snapshot(page, `${name}-${viewport.name}`);
+				await snapshot(page, `${name}-${viewport.name}`, dynamic);
 			});
 		}
 	});
