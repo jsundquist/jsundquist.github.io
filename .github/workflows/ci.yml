@@ -202,3 +202,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run deploy.yml --repo "$GITHUB_REPOSITORY" --ref main
+
+      # Same reason: sbom.yml's push trigger doesn't fire for the auto-merge.
+      - name: Upload SBOM
+        if: steps.decide.outputs.merge == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run sbom.yml --repo "$GITHUB_REPOSITORY" --ref main
