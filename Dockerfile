@@ -1,5 +1,5 @@
 # Packages the pre-built site. Run `pnpm build` first (CI passes dist/ in as an artifact).
-FROM nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6
+FROM nginxinc/nginx-unprivileged:1.30-alpine-slim@sha256:5d8bb9437d74a600ec5dbf90c035451c724dc33eac8d3a71078f6f8612c345f6
 # Links the GHCR package to this repo.
 LABEL org.opencontainers.image.source="https://github.com/jsundquist/jsundquist.github.io"
 COPY nginx.conf /etc/nginx/conf.d/default.conf
