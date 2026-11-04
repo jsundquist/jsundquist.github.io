@@ -1,0 +1,23 @@
+---
+export const prerender = true;
+import { getSortedPosts } from "@/lib/posts";
+
+export async function getStaticPaths() {
+  const posts = await getSortedPosts();
+  const months = new Set(posts.map((p) => p.data.publishedAt.slice(0, 7)));
+  return [...months].map((ym) => ({
+    params: { year: ym.slice(0, 4), month: ym.slice(5, 7) },
+  }));
+}
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Redirecting…</title>
+    <meta http-equiv="refresh" content="0; url=/blog" />
+    <meta name="robots" content="noindex" />
+  </head>
+  <body><a href="/blog">Redirecting to /blog</a></body>
+</html>

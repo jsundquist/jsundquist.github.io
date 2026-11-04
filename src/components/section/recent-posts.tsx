@@ -1,7 +1,7 @@
 import BlurFade from "@/components/magicui/blur-fade";
 import { Badge } from "@/components/ui/badge";
 import { ChevronRight } from "lucide-react";
-import { slugifyTag } from "@/lib/utils";
+import { postPath, slugifyTag } from "@/lib/utils";
 import { DATA } from "@/data/resume";
 
 const BLUR_FADE_DELAY = 0.04;
@@ -37,7 +37,7 @@ export default function RecentPosts({ posts }: { posts: RecentPost[] }) {
         {posts.map((post, id) => (
           <BlurFade key={post.id} delay={BLUR_FADE_DELAY * 12 + id * 0.05}>
             <a
-              href={`/blog/${post.id}`}
+              href={postPath(post)}
               className="group flex flex-col gap-y-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <p className="tracking-tight text-lg font-medium">

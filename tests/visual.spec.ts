@@ -4,7 +4,7 @@ import { test, expect, type Page } from '@playwright/test';
 // comparing against them elsewhere would always fail.
 test.skip(process.platform !== 'linux', 'visual baselines are Linux-only');
 
-const POST = '/blog/building-a-claude-code-knowledgebase-mcp';
+const POST = '/blog/2026/08/building-a-claude-code-knowledgebase-mcp';
 
 // Sections whose content grows with every new post (recent-posts list, blog
 // list with its post count and pagination). Their height is pinned and their

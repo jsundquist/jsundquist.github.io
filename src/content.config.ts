@@ -3,7 +3,12 @@ import { z } from 'astro/zod';
 import { glob } from 'astro/loaders';
 
 const blog = defineCollection({
-	loader: glob({ pattern: '**/*.mdx', base: './src/content/blog' }),
+	// Files live in YYYY/MM folders for organization only; the id (and slug) is the bare filename.
+	loader: glob({
+		pattern: '**/*.mdx',
+		base: './src/content/blog',
+		generateId: ({ entry }) => entry.replace(/\.mdx$/, '').split('/').pop()!,
+	}),
 	schema: z.object({
 		title: z.string(),
 		publishedAt: z.string(),
