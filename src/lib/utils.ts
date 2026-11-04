@@ -40,3 +40,13 @@ export function formatDate(date: string) {
     return `${fullDate} (${yearsAgo}y ago)`;
   }
 }
+
+export function postPath(post: {
+  id: string;
+  publishedAt?: string;
+  data?: { publishedAt: string };
+}) {
+  const date = post.publishedAt ?? post.data!.publishedAt;
+  const [year, month] = date.split("-");
+  return `/blog/${year}/${month}/${post.id}`;
+}

@@ -1,0 +1,156 @@
+---
+export const prerender = true;
+import Layout from "@/layouts/Layout.astro";
+import { render } from "astro:content";
+import { getSortedPosts, readingTime } from "@/lib/posts";
+import { DATA } from "@/data/resume";
+import { formatDate, postPath, slugifyTag } from "@/lib/utils";
+import { mdxComponents } from "@/mdx-components";
+import { Badge } from "@/components/ui/badge";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+export async function getStaticPaths() {
+  const sortedPosts = await getSortedPosts();
+  return sortedPosts.map((post, index) => ({
+    params: {
+      year: post.data.publishedAt.slice(0, 4),
+      month: post.data.publishedAt.slice(5, 7),
+      slug: post.id,
+    },
+    props: {
+      post,
+      previousPost: index > 0 ? sortedPosts[index - 1] : null,
+      nextPost: index < sortedPosts.length - 1 ? sortedPosts[index + 1] : null,
+    },
+  }));
+}
+
+const { post, previousPost, nextPost } = Astro.props;
+const { title, publishedAt, summary, image, tags } = post.data;
+const path = postPath(post);
+
+const { Content } = await render(post);
+const minutes = readingTime(post.body);
+
+const jsonLd = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  headline: title,
+  datePublished: publishedAt,
+  dateModified: publishedAt,
+  description: summary,
+  image: image
+    ? image.startsWith("http")
+      ? image
+      : `${DATA.url}${image}`
+    : `${DATA.url}/og_image.png`,
+  url: `${DATA.url}${path}`,
+  author: {
+    "@type": "Person",
+    name: DATA.name,
+  },
+}).replace(/</g, "\\u003c");
+---
+
+<Layout
+  title={title}
+  description={summary}
+  image={image}
+  canonicalURL={`${DATA.url}${path}`}
+>
+  <section id="blog">
+    <script is:inline type="application/ld+json" set:html={jsonLd} />
+    <div class="flex justify-start gap-4 items-center">
+      <a
+        href="/blog"
+        class="text-sm text-muted-foreground hover:text-foreground transition-colors border border-border rounded-lg px-2 py-1 inline-flex items-center gap-1 mb-6 group"
+        aria-label="Back to Blog"
+      >
+        <ChevronLeft
+          className="size-3 group-hover:-translate-x-px transition-transform"
+        />
+        Back to Blog
+      </a>
+    </div>
+    <div class="flex flex-col gap-4">
+      <h1
+        class="title font-semibold text-3xl md:text-4xl tracking-tighter leading-tight"
+      >
+        {title}
+      </h1>
+      <p class="text-sm text-muted-foreground">
+        {formatDate(publishedAt)} · {minutes} min read
+      </p>
+      {
+        tags && tags.length > 0 && (
+          <div class="flex flex-wrap gap-1.5">
+            {tags.map((tag) => (
+              <a href={`/blog/tag/${slugifyTag(tag)}`}>
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] font-medium hover:bg-secondary/70 transition-colors"
+                >
+                  {tag}
+                </Badge>
+              </a>
+            ))}
+          </div>
+        )
+      }
+    </div>
+    <div class="my-6 flex w-full items-center">
+      <div
+        class="flex-1 h-px bg-border"
+        style="mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);"
+      >
+      </div>
+    </div>
+    <article
+      class="prose max-w-full text-pretty font-sans leading-relaxed text-muted-foreground dark:prose-invert"
+    >
+      <Content components={mdxComponents} />
+    </article>
+
+    <nav class="mt-12 pt-8 max-w-2xl">
+      <div class="flex flex-col sm:flex-row justify-between gap-4">
+        {
+          previousPost ? (
+            <a
+              href={postPath(previousPost)}
+              class="group flex-1 flex flex-col gap-1 p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+            >
+              <span class="flex items-center gap-1 text-xs text-muted-foreground">
+                <ChevronLeft className="size-3" />
+                Previous
+              </span>
+              <span class="text-sm font-medium group-hover:text-foreground transition-colors whitespace-normal wrap-break-word">
+                {previousPost.data.title}
+              </span>
+            </a>
+          ) : (
+            <div class="hidden sm:block flex-1" />
+          )
+        }
+
+        {
+          nextPost ? (
+            <a
+              href={postPath(nextPost)}
+              class="group flex-1 flex flex-col gap-1 p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors text-right"
+            >
+              <span class="flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                Next
+                <ChevronRight className="size-3" />
+              </span>
+              <span class="text-sm font-medium group-hover:text-foreground transition-colors whitespace-normal wrap-break-word">
+                {nextPost.data.title}
+              </span>
+            </a>
+          ) : (
+            <div class="hidden sm:block flex-1" />
+          )
+        }
+      </div>
+    </nav>
+  </section>
+</Layout>

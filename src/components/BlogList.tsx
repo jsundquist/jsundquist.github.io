@@ -1,7 +1,7 @@
 import BlurFade from "@/components/magicui/blur-fade";
 import { Badge } from "@/components/ui/badge";
 import { ChevronRight } from "lucide-react";
-import { slugifyTag } from "@/lib/utils";
+import { postPath, slugifyTag } from "@/lib/utils";
 
 const BLUR_FADE_DELAY = 0.04;
 
@@ -61,7 +61,7 @@ export default function BlogList({ posts, allPostsCount, pagination, pageSize, a
                   <BlurFade delay={BLUR_FADE_DELAY * 3 + id * 0.05} key={post.id}>
                     <a
                       className="flex items-start gap-x-2 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      href={`/blog/${post.id}`}
+                      href={postPath(post)}
                     >
                       <span className="text-xs font-mono tabular-nums font-medium mt-[5px]">
                         {String(indexNumber).padStart(2, "0")}.

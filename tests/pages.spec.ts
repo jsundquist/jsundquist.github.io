@@ -45,7 +45,7 @@ test('blog index lists posts and links to a post', async ({ page }) => {
 	await expect(postLink).toBeVisible();
 
 	await postLink.click();
-	await expect(page).toHaveURL(/\/blog\/[^/]+\/?$/);
+	await expect(page).toHaveURL(/\/blog\/\d{4}\/\d{2}\/[^/]+\/?$/);
 	await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 	await expect(page.getByText(/min read/)).toBeVisible();
 });
