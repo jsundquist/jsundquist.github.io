@@ -26,3 +26,5 @@ if (nodes.length > 0) {
     attributeFilter: ["class"],
   });
 }
+
+export {};
