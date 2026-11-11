@@ -9,6 +9,7 @@ import rehypePrettyCode from 'rehype-pretty-code';
 import rehypeExternalLinks from 'rehype-external-links';
 import { unified } from '@astrojs/markdown-remark';
 import { remarkCodeMeta } from './src/lib/remark-code-meta.ts';
+import { remarkMermaid } from './src/lib/remark-mermaid.ts';
 import { CONFIG } from './src/data/config.ts';
 
 /** @type {import('rehype-pretty-code').Options} */
@@ -39,7 +40,7 @@ export default defineConfig({
 	markdown: {
 		syntaxHighlight: false,
 		processor: unified({
-			remarkPlugins: [remarkGfm, remarkCodeMeta],
+			remarkPlugins: [remarkGfm, remarkCodeMeta, remarkMermaid],
 			rehypePlugins: [
 				[rehypePrettyCode, prettyCodeOptions],
 				[rehypeExternalLinks, { target: '_blank', rel: ['noopener', 'noreferrer'] }],
