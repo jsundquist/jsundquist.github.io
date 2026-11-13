@@ -238,6 +238,21 @@ export const DATA = {
       image: "/projects/transcript-search-mcp.svg",
       video: "",
     },
+    {
+      title: "Software Bill of Materials",
+      href: "https://github.com/jsundquist/sbom",
+      dates: "",
+      active: true,
+      description: "A self-hosted dashboard for CycloneDX and SPDX SBOMs across your applications. It flags vulnerable packages using OSV.dev, CISA KEV and EPSS scores, and outdated or abandoned dependencies using deps.dev. A separate worker handles the enrichment.",
+      technologies: ['Next.js', 'TypeScript', 'MUI', 'PostgreSQL', 'Drizzle ORM', 'Zod', 'Docker'],
+      links: [{
+        type: "Source",
+        href: "https://github.com/jsundquist/sbom",
+        icon: <Icons.github className="size-3" />
+      }],
+      image: "/projects/sbom.png",
+      video: "",
+    },
   ],
   hackathons: [
     {
