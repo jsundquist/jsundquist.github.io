@@ -1,3 +1,6 @@
+# Fail installs/runs on a Node outside package.json engines (see .nvmrc).
+engineStrict: true
+
 allowBuilds:
   esbuild: true
 
