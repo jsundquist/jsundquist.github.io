@@ -22,6 +22,15 @@ export const mdxComponents = {
       />
     </div>
   ),
+  details: (props: ComponentProps<"details">) => (
+    <details className="my-6" {...props} />
+  ),
+  summary: (props: ComponentProps<"summary">) => (
+    <summary
+      className="cursor-pointer select-none py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+      {...props}
+    />
+  ),
   table: (props: ComponentProps<"table">) => (
     <div className="my-6 border border-border rounded-xl overflow-hidden">
       <div className="w-full overflow-x-auto">
