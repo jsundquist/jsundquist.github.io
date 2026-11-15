@@ -1,0 +1,769 @@
+---
+title: "My opinionated security golden path for a GitHub repo"
+publishedAt: "2026-11-15"
+summary:
+  "After building an SBOM dashboard, I looked at the path code takes into a repository and
+  out to production. Here is how I group the checks across git hooks, pull requests,
+  shipping an image, and scheduled jobs."
+tags:
+  [
+    "Security",
+    "Supply Chain",
+    "GitHub Actions",
+    "SLSA",
+    "Platform Engineering",
+    "Golden Paths",
+  ]
+---
+
+Maybe this is becoming my little security series; who knows. Lately I've been thinking
+about it more, along with researching different aspects of it from a software development
+perspective. My previous blog post was about building a Software Bill of Materials (SBOM)
+dashboard to get a better view into my attack surface and the CVE issues that come up. Now
+I'm looking deeper into not just the deployed software but also the workflow of getting
+software into the repository and what happens once it's in there.
+
+The topics that I've been researching and working through include:
+
+- Artifact Hardening
+- Dependency Management
+- Artifact Repositories
+- Software Bill of Materials
+- Supply-chain Levels for Software Artifacts (SLSA)
+- Security Golden Paths
+
+With these six topics, I've been working toward my own personal, opinionated golden path
+for setting up a GitHub repository that meets a certain standard. It isn't finished yet,
+but it's already giving me a solid foundation to work on. This post is a snapshot of where
+my understanding is today. The tools and the best way to use them will keep changing, and
+I expect parts of this to age.
+
+## How I'm organizing this
+
+My first instinct was to write this post one topic at a time. That falls apart quickly,
+though, because the topics don't line up with the automation. Dependency management shows
+up in four different places, and a single release workflow touches hardening, the artifact
+repository, SLSA, and the SBOM all at once.
+
+So instead I'm going to organize this post the same way the automation is organized: by
+_when_ each check runs. I'll show a small example of each workflow along the way.
+
+Every check on the path answers a different question at a different moment:
+
+| When                   | Where                                 | The question it answers                   |
+| ---------------------- | ------------------------------------- | ----------------------------------------- |
+| Before the commit      | Git hooks (lefthook)                  | Is anything here I should never commit?   |
+| Before the merge       | CI and security workflows, Dependabot | Is this change safe to bring into `main`? |
+| When shipping          | A release workflow                    | Can I prove what I shipped?               |
+| While nobody's looking | Repository settings, scheduled scans  | Has anything changed since I last looked? |
+
+The earlier the check, the cheaper the fix. A leaked secret caught by a git hook never
+exists in history, while one caught after the merge means rotating a credential.
+
+## Before the commit: git hooks
+
+For many of the topics, I've tried to cover them using a GitHub Action or bot. There are
+some, though, that I also set up as git hooks so that things like secrets don't even make
+it into the repository itself.
+
+For git hooks, I opted to use [lefthook](https://lefthook.dev/) over
+[pre-commit](https://pre-commit.com/). Both libraries provide nearly the same benefit,
+since they run checks in a git pre-commit hook. My only reason for choosing lefthook is
+that I already had it set up on my machine.
+
+There would be a benefit to switching to pre-commit, since I could ensure every tool I run
+in a hook matches the version running in a GitHub Action. For right now I'm okay with a
+little drift between the hook version on my machine and the version in the Action. The
+hook is a convenience that catches mistakes early. The Action is the real gate, and it
+doesn't trust my machine.
+
+The hooks I run are the ones my golden path recommends:
+
+- **gitleaks** on the staged changes, so a secret never enters history. That's the only
+  point where nothing needs rotating afterward.
+- **actionlint** and **zizmor** on any workflow file I touch, so a broken or unsafe
+  workflow gets caught before I push it.
+
+Hooks run per clone, and `git commit --no-verify` skips them, so they can't be enforced.
+That's why they're a recommendation and not a requirement. A tool that isn't installed is
+skipped silently so it never blocks a commit.
+
+<details>
+<summary>Example: lefthook.yml</summary>
+
+```yaml
+pre-commit:
+  commands:
+    gitleaks:
+      skip:
+        - run: "! command -v gitleaks"
+      run: gitleaks git --pre-commit --staged --redact
+    actionlint:
+      glob: ".github/workflows/*.{yml,yaml}"
+      skip:
+        - run: "! command -v actionlint"
+      run: actionlint {staged_files}
+    zizmor:
+      glob: ".github/workflows/*.{yml,yaml}"
+      skip:
+        - run: "! command -v zizmor"
+      run: zizmor {staged_files}
+```
+
+</details>
+
+That last point is the theme for the rest of this post: anything a hook checks, CI checks
+again.
+
+## Before the merge: the pull request gate
+
+The default branch is protected by a ruleset: no force-pushes, no deletion, and every
+change goes through a pull request. On top of that, the checks below are marked as
+required status checks. That's the piece that makes them a gate and not just a report. A
+check that isn't required gates nothing.
+
+That's also how I handle review. I'm the only person on my repositories, and I can't
+approve my own pull request, so the required checks _are_ the review. A change merges when
+the checks are green, whether I wrote it or Dependabot did.
+
+I keep the checks in small, separate workflows instead of one large one. They run in
+parallel and each reports its own result. I also don't chain them with `needs:`, because a
+skipped job counts as passing for a required check.
+
+### Does it work?
+
+Start with the plain continuous integration work: install from the lockfile, lint, build,
+and run the tests, including the end-to-end ones. These are all things I should have
+already run on my own machine, and CI runs them again to catch it if I didn't. A change
+that doesn't build never gets as far as being “secure”.
+
+The one security-relevant detail is the install step. A strict install such as
+`pnpm install --frozen-lockfile` (or `npm ci`) fails when the lockfile is out of date, so
+a change nobody reviewed can't slip into the build.
+
+<details>
+<summary>Example: ci.yml</summary>
+
+```yaml
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm build
+      - run: pnpm test:e2e
+```
+
+</details>
+
+### Secrets
+
+GitHub's own secret scanning and push protection know provider-specific formats.
+[gitleaks](https://github.com/gitleaks/gitleaks) adds generic rules and scans the full
+history, not just new pushes. It's the CI backstop for the hook from the previous section.
+If it ever finds something, the secret is already exposed, so revoke and rotate it first.
+Rewriting history is secondary.
+
+<details>
+<summary>Example: secrets.yml</summary>
+
+```yaml
+name: secrets
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "41 5 * * 1" # Mondays
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # full history
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+</details>
+
+### The workflows themselves
+
+This is the part I had given the least thought to before this series. The workflows are
+code that runs with access to my secrets, so they deserve the same scrutiny as the
+application. Two linters cover it:
+
+- [actionlint](https://github.com/rhysd/actionlint) finds syntax and type mistakes, and
+  runs shellcheck over the `run:` steps.
+- [zizmor](https://github.com/zizmorcore/zizmor) finds security problems: script
+  injection, excessive permissions, and unpinned actions.
+
+Fix the actionlint findings first, because zizmor on a broken workflow is noisy.
+
+Both linters push toward a short set of rules that every workflow follows:
+
+- Top-level `permissions: {}`, widened per job.
+- Every action pinned to a full commit SHA, with the version in a trailing comment.
+- `persist-credentials: false` on every checkout, so the token stays out of the git config
+  where later steps could leak it.
+- No `${{ }}` expressions inside `run:`. Pass values through `env:` instead.
+
+Pinning means a compromised tag can't silently change what runs. The cost is that
+something has to bump those SHAs, which is where Dependabot comes in below.
+
+<details>
+<summary>Example: workflow-lint.yml</summary>
+
+```yaml
+name: workflow-lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 5 * * 1" # Mondays
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+
+  zizmor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # only needed for private repos
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          advanced-security: false
+```
+
+</details>
+
+### Dependencies
+
+Dependencies are where a lot of the risk comes in, so a few separate checks cover them:
+
+- **A scan of the lockfile for known vulnerabilities.**
+  [OSV-Scanner](https://google.github.io/osv-scanner/) reads every lockfile in the repo,
+  whatever the ecosystem, instead of needing a separate audit command per stack. It runs
+  in two modes. A pull request scan fails only on vulnerabilities that the PR introduces,
+  so it's safe to make required. A full scan runs on push and weekly, because new CVEs
+  show up without any commit.
+- **A review of what a pull request adds.**
+  [dependency-review](https://github.com/actions/dependency-review-action) blocks a pull
+  request that introduces a dependency with a known high or critical advisory. It's
+  optional if OSV-Scanner's PR scan is already in place, but it adds license policy.
+- **A coverage check for Dependabot**, covered in the next section.
+
+My SBOM dashboard from the last post does a similar job for me, but it's mine and not
+something you can pick up. OSV-Scanner is the one anyone can run as a GitHub Action.
+
+The two scans are kept as separate files on purpose. The full scan fails on _any_ known
+vulnerability, including old ones, so if it were required, a single newly published CVE in
+an existing dependency would block every unrelated PR. Kept separate, a red scheduled run
+means “the repo has a known vulnerability”, not “this change broke something”.
+
+<details>
+<summary>Example: osv-scanner-pr.yml and osv-scanner-scheduled.yml</summary>
+
+```yaml
+# .github/workflows/osv-scanner-pr.yml
+name: osv-scanner-pr
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  scan-pr:
+    permissions:
+      actions: read
+      security-events: write # upload results to the Security tab
+      contents: read
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+```
+
+```yaml
+# .github/workflows/osv-scanner-scheduled.yml
+name: osv-scanner-scheduled
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  scan-scheduled:
+    permissions:
+      actions: read
+      security-events: write
+      contents: read
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+```
+
+</details>
+
+### Letting Dependabot do the boring part
+
+Dependabot opens the pull requests that keep things current, and I want it covering every
+ecosystem in the repo: npm, GitHub Actions, Docker, and whatever else shows up later. An
+ecosystem with no entry never gets updated, and that includes the SHA pins from the
+previous section, which never update on their own.
+
+Each entry gets a seven-day cooldown, so a freshly published release has to sit for a week
+before I'm offered it. Most malicious versions are caught and pulled within a few days, so
+that cooldown is cheap protection. See GitHub's
+[Dependabot options reference](https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference)
+for everything else you can configure. To catch an ecosystem I forgot to add, a small
+check fails the build when a manifest has no Dependabot entry, or an entry has no
+cooldown.
+
+<details>
+<summary>Example: dependabot.yml</summary>
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+```
+
+</details>
+
+Beyond what my written notes cover, I also let CI do the boring merging. A job at the end
+of the pull request workflow **automerges** Dependabot's pull requests, and it's
+deliberately narrow. It runs only on pull requests authored by Dependabot, and it merges
+only when _every_ dependency in the pull request is a development dependency receiving a
+patch or minor update. Production dependencies, major versions, and every GitHub Actions
+update stay open for me to review. It fails closed: if anything about the pull request
+looks unexpected, it does nothing.
+
+I went back and forth on this one. Auto-merging anything feels risky, and a development
+dependency isn't automatically harmless, since a lot of build-time tooling can change what
+gets built. What makes me comfortable is that it only runs after all the required checks
+have passed, and the cooldown has already filtered out the freshest releases.
+
+One gotcha worth knowing about: merges made with the default `GITHUB_TOKEN` don't trigger
+`push` workflows. If something should run after an automerge, such as a deploy, the
+automerge job has to start it explicitly.
+
+<details>
+<summary>Example: the automerge job</summary>
+
+```yaml
+automerge:
+  needs: [validate, actionlint, zizmor, dependency-review, secrets]
+  # Use the PR author, not github.actor, so a human re-running or pushing
+  # to a PR can't trigger a merge.
+  if: github.event.pull_request.user.login == 'dependabot[bot]'
+  runs-on: ubuntu-latest
+  permissions:
+    contents: write
+    pull-requests: write
+  steps:
+    - id: metadata
+      uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+    # Grouped PRs carry several dependencies, so check every entry. Fails closed.
+    - name: Decide
+      id: decide
+      env:
+        UPDATED_DEPENDENCIES: ${{ steps.metadata.outputs.updated-dependencies-json }}
+      run: |
+        set -euo pipefail
+        if jq -e '
+          length > 0 and all(
+            .dependencyType == "direct:development"
+            and (.updateType | IN("version-update:semver-patch", "version-update:semver-minor"))
+          )
+        ' <<< "$UPDATED_DEPENDENCIES" > /dev/null; then
+          echo "merge=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "merge=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Merge
+      if: steps.decide.outputs.merge == 'true'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PR_URL: ${{ github.event.pull_request.html_url }}
+      run: gh pr merge --squash "$PR_URL"
+```
+
+</details>
+
+## When shipping: building an image I can prove
+
+Everything so far protects what comes _into_ the repository. The other half is what goes
+out, and this is where the artifact repository, SLSA, and SBOM topics show up. I'll use a
+container image published to GitHub Container Registry (GHCR) as the example. Where the
+image runs after that, such as a Kubernetes cluster, is outside the scope of this post.
+
+### Hardening the image itself
+
+The image is built from what the Dockerfile says, so a floating base or a build-time
+upgrade changes the artifact without any commit. The rules I follow:
+
+- A multi-stage build, so build tools stay out of the final image.
+- The base image pinned **by digest**, with the tag kept as a comment.
+- A non-root user, or a base image that already runs as non-root.
+- No `apt-get upgrade` or `apk upgrade`, because that defeats the digest pin.
+- Strict installs, such as `npm ci`.
+- A label that links the package back to the repository.
+
+Dependabot's Docker ecosystem keeps that digest-pinned base image current.
+
+<details>
+<summary>Example: Dockerfile</summary>
+
+```dockerfile
+# nginxinc/nginx-unprivileged:1.30-alpine-slim, pinned by digest (runs as non-root)
+FROM nginxinc/nginx-unprivileged:1.30-alpine-slim@sha256:5d8bb9437d74a600ec5dbf90c035451c724dc33eac8d3a71078f6f8612c345f6
+
+# Links the GHCR package to the repository
+LABEL org.opencontainers.image.source="https://github.com/OWNER/REPO"
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY dist /usr/share/nginx/html
+```
+
+</details>
+
+### Build, scan, attest, tag
+
+One workflow turns a protected release tag into an image I can prove. It builds once and
+pushes by digest with no tag yet, and the digest is what everything after it refers to.
+Then:
+
+1. **Scan** the pushed image with OSV-Scanner. The scan runs at release time because a CVE
+   can be published between the merge and the release, so a scan that passed on the pull
+   request might not pass today. A failed scan stops the release.
+   [Trivy](https://trivy.dev/) is another well-known image scanner, and it's the one
+   running in some of my own repositories. Either works, as long as the scan runs against
+   the exact image you're about to attest.
+2. **Attest** build provenance. GitHub signs it with Sigstore as part of the attestation,
+   so there's no separate signing step.
+3. **Tag** the attested digest, so a version tag only ever points at an image that was
+   scanned and attested.
+
+An SBOM for the image is a good addition here. [Syft](https://github.com/anchore/syft)
+generates it from the pushed image, and the same
+[attestation action](https://github.com/actions/attest) signs it to the digest. Later, I
+can answer “does this release contain package X?” without unpacking anything.
+
+The jobs run in a chain with `needs:`, which is the one place that's right. The rule
+against chaining applies to required checks. These jobs aren't required checks, and each
+one depends on the digest or the result before it. Each job also gets only the permissions
+it needs, so only the attest job can request a signing identity.
+
+<details>
+<summary>Example: release.yml</summary>
+
+```yaml
+name: release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions: {}
+
+env:
+  IMAGE: ghcr.io/OWNER/REPO # lowercase
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # push to GHCR
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          # Pushed by digest, with no tag yet
+          outputs:
+            type=image,name=${{ env.IMAGE
+            }},push-by-digest=true,name-canonical=true,push=true
+          provenance: false
+          sbom: false
+
+  scan:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      # log in to GHCR, then install OSV-Scanner pinned by version and SHA-256
+      - name: Scan the pushed image
+        env:
+          DIGEST: ${{ needs.build.outputs.digest }}
+        run: ./osv-scanner scan image "${IMAGE}@${DIGEST}"
+
+  attest:
+    needs: [build, scan]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # request the signing certificate
+      attestations: write
+      packages: write # store the attestation next to the image
+    steps:
+      # log in to GHCR, then:
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ needs.build.outputs.digest }}
+          push-to-registry: true
+
+  publish:
+    needs: [build, attest]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      # log in to GHCR, then:
+      - name: Tag the attested digest
+        env:
+          DIGEST: ${{ needs.build.outputs.digest }}
+          TAG: ${{ github.ref_name }}
+        run: docker buildx imagetools create --tag "${IMAGE}:${TAG}" "${IMAGE}@${DIGEST}"
+```
+
+</details>
+
+### Verifying and cleaning up
+
+An attestation only matters if something checks it. I refer to the image by digest, not by
+tag, and verify that the digest was built by my release workflow in my repository:
+
+```bash
+gh attestation verify oci://ghcr.io/OWNER/REPO@sha256:... --repo OWNER/REPO \
+  --signer-workflow OWNER/REPO/.github/workflows/release.yml \
+  --predicate-type https://slsa.dev/provenance/v1
+```
+
+The exit code is the answer. Enforcing this check automatically wherever the image runs,
+for example with a cluster admission policy, is the natural next step, and it's outside
+this post.
+
+Two smaller pieces round out the artifact repository side. Release tags get their own
+ruleset so a version can't be moved or deleted after the fact. And when cleaning up old
+image versions in GHCR, be careful: attestations are stored as untagged versions, so
+deleting “untagged” versions blindly deletes the proof. Keep anything a release digest
+refers to.
+
+I don't claim to be at a particular SLSA level. I treat the framework as a checklist of
+questions instead: is the build scripted, is there provenance, and can someone verify the
+artifact came from my workflow?
+
+## Always on: settings and scheduled checks
+
+Not everything on the path is a workflow that runs when I push. Some of it is switched on
+once and then watches continuously.
+
+### Repository settings
+
+These are repository settings that apply to every workflow, including ones I haven't
+written yet:
+
+- A read-only default `GITHUB_TOKEN`, and Actions that can't approve pull requests.
+- A requirement that every action is pinned to a full commit SHA. That's enforcement of
+  the habit I described earlier, so an unpinned action fails instead of relying on me
+  remembering.
+- Approval before workflows run on pull requests from outside contributors.
+- Secret scanning and push protection, which blocks a push containing a known secret
+  format. That's the third layer for secrets, after the hook and gitleaks in CI.
+- Dependabot alerts and security updates.
+- [CodeQL default setup](https://docs.github.com/en/code-security/code-scanning/enabling-code-scanning/configuring-default-setup-for-code-scanning),
+  which is one API call with no workflow to pin or maintain.
+- [Private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability),
+  with a `SECURITY.md` telling people how to use it. It's a few lines, but it's the part
+  of a golden path that's easy to skip.
+
+### Scheduled scans
+
+Controls get switched off, expire, or quietly stop running, and new CVEs show up without
+anyone committing anything. So several of the checks above also run on a schedule: the
+full OSV scan, gitleaks over the history, and the workflow lint. A scheduled run isn't a
+pull request check and isn't made required. A failure is a signal, not a merge blocker.
+
+There's one trap in that. GitHub disables scheduled workflows in a public repo after 60
+days with no repository activity, so the weekly scans would silently stop while every
+earlier check still looked green. Merged Dependabot pull requests count as activity, so a
+repository that's looked after rarely hits this. A repository left alone for two months
+does.
+
+A scheduled rescan of the latest released image closes the same gap for artifacts. The
+scan at release time covers the moment of release, but a CVE published a month later
+affects the image I'm still running.
+
+### Scorecard
+
+The [OpenSSF Scorecard](https://github.com/ossf/scorecard) gives a weekly score for how
+well the repository follows common practices: branch protection, pinned dependencies,
+token permissions, a security policy, and a code scanner. It looks at the controls from
+the outside, as an independent report card, and it doesn't read your code for bugs.
+
+I read the score as a report and not a target. Some checks can't be perfect by design. The
+review checks, for example, expect an approving human, and I'm the only person on the
+repository. I look for checks that dropped, not for a score of 10.
+
+<details>
+<summary>Example: scorecard.yml</summary>
+
+```yaml
+name: scorecard
+
+on:
+  branch_protection_rule:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "41 6 * * 2" # Tuesdays
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      security-events: write # upload results to the Security tab
+      id-token: write # publish results (public repos only)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: results.sarif
+```
+
+</details>
+
+## The six topics at a glance
+
+Here is where each of the original topics ended up:
+
+| Topic                 | Where it lives                                                                      |
+| --------------------- | ----------------------------------------------------------------------------------- |
+| Artifact hardening    | Dockerfile rules, image scan at release, workflow linting, pinned actions           |
+| Dependency management | Dependabot with cooldowns, OSV-Scanner, dependency-review, strict lockfile installs |
+| Artifact repositories | GHCR push by digest, protected release tags, careful retention                      |
+| SBOM                  | Image SBOM generated with Syft and attested to the digest                           |
+| SLSA                  | Build provenance attestation, minimal job permissions, verification by digest       |
+| Security golden path  | All of it, written down so the next repository can start from it                    |
+
+## What I've run, and what I haven't
+
+Most of this isn't theoretical. The pieces are running today across this site, my SBOM
+dashboard, and my MCP servers: secret scanning, workflow linting, dependency review,
+Dependabot with cooldowns, image scanning, build provenance and SBOM attestations, and the
+repository settings. They don't all match the examples above exactly. Some of them I set
+up before I'd written any of this down, so they use different tools (Trivy for images
+instead of OSV-Scanner) or different triggers (deploying on every push instead of on a
+release tag). The notes are where I've been pulling them into one consistent version.
+
+A few pieces are still on paper: OSV-Scanner, Scorecard, release tag rulesets, and
+checking attestations before an image is deployed, which I've only done by hand so far.
+Image rescanning is handled differently for now. Instead of a scanning workflow, my SBOM
+dashboard watches the images I run and flags new vulnerabilities. Treat the examples as
+starting points and check them against your own repository before you rely on them.
+
+There are also whole areas I haven't gotten to yet: static analysis with custom rules such
+as Semgrep, AI-assisted review of pull requests, and the newer supply chain around agent
+skills, MCP servers, and plugins. That last one is the least settled of all.
+
+If you're starting from nothing, my advice is not to try to do it all at once. Pin your
+actions, scope your permissions, and scan for secrets. Those three are cheap and cover a
+surprising amount. You can add the rest one question at a time.
