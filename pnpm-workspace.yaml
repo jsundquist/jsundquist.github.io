@@ -5,9 +5,11 @@ allowBuilds:
 # `pnpm add` and fresh resolution; Dependabot adds its own 7-day cooldown.
 minimumReleaseAge: 1440
 
-# Transitive deps pinned to vulnerable exact versions by their parents
-# (@astrojs/internal-helpers pins js-yaml, @tailwindcss/typography pins
-# postcss-selector-parser), so Dependabot can't bump them itself.
+# Transitive deps Dependabot can't bump itself:
+# - @tailwindcss/typography pins postcss-selector-parser to a vulnerable 6.0.10.
+# - @emnapi/runtime is an optional peer of @astrojs/check's wasm deps; without
+#   this, the resolver picks the 2.0.0-beta.2 prerelease, which breaks
+#   `astro check` (bridge.setLastError is not a function).
 overrides:
-  js-yaml: ^4.3.2
   postcss-selector-parser: ^6.1.5
+  '@emnapi/runtime': ^1.11.3
