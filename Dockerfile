@@ -1,5 +1,5 @@
 # Packages the pre-built site. Run `pnpm build` first (CI passes dist/ in as an artifact).
-FROM nginxinc/nginx-unprivileged:1.30-alpine-slim@sha256:5d8bb9437d74a600ec5dbf90c035451c724dc33eac8d3a71078f6f8612c345f6
+FROM nginx/nginx-unprivileged:1.30-alpine-slim@sha256:8432c57ac86f178741af2b89948bd9087cb9df1c415bc1ab4d23735c4f0e3e61
 # Links the GHCR package to this repo.
 LABEL org.opencontainers.image.source="https://github.com/jsundquist/jsundquist.github.io"
 # Pulls in Alpine security fixes (e.g. zlib, musl) that land before the pinned base digest is rebuilt.
